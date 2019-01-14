@@ -1,0 +1,5 @@
+dpu-utils
+numpy
+tensorflow
+more_itertools
+docopt
