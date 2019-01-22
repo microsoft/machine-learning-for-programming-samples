@@ -20,13 +20,13 @@ import time
 from typing import Dict, Any, Optional
 
 from docopt import docopt
-from dpu_utils.utils import RichPath, run_and_debug
+from dpu_utils.utils import run_and_debug
 
 from model import Model
 
 
-def run_train(train_data_dir: RichPath,
-              valid_data_dir: RichPath,
+def run_train(train_data_dir: str,
+              valid_data_dir: str,
               save_dir: str,
               hyperparameters: Dict[str, Any],
               max_num_files: Optional[int]=None,
@@ -71,8 +71,8 @@ def run(arguments) -> None:
     save_model_dir = args['SAVE_DIR']
     os.makedirs(save_model_dir, exist_ok=True)
 
-    run_train(RichPath.create(arguments['TRAIN_DATA_DIR']),
-              RichPath.create(arguments['VALID_DATA_DIR']),
+    run_train(arguments['TRAIN_DATA_DIR'],
+              arguments['VALID_DATA_DIR'],
               save_model_dir,
               hyperparameters,
               max_num_files=arguments.get('--max-num-files'))

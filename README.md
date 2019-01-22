@@ -11,31 +11,57 @@ If you want to re-use this, install required dependencies using
 `pip install -r requirements.txt`.
 To turn this into a working model, five changes are required in `model.py`
 (these are marked by `#TODO#'`):
-1. `Model.load_data_file` needs to be filled in to read a data file and a
-   sequence of lists of tokens; each list is considered one sample.
+1. `Model.load_data_file` needs to be filled in to read a data file and 
+   return a sequence of lists of tokens; each list is considered one sample.
    These could be all the tokens in one file, or all the tokens in one method.
    [This code should be reusable from the practical on the feature
     extractor]
+
+   You should be able to test this as follows:
+   ```
+   $ python test_step1.py data/r252-corpus-features/org/apache/lucene/analysis/miscellaneous/DuplicateByteSequenceSpotter.java.proto
+   Loaded token sequences:
+   ['PUBLIC', 'DuplicateByteSequenceSpotter', 'LPAREN', 'RPAREN', 'LBRACE', 'this', 'DOT', 'nodesAllocatedByDepth', 'EQ', 'NEW', 'int', 'LBRACKET', '4', 'RBRACKET', 'SEMI', 'this', 'DOT', 'bytesAllocated', 'EQ', '0', 'SEMI', 'root', 'EQ', 'NEW', 'RootTreeNode', 'LPAREN', 'LPAREN', 'byte', 'RPAREN', '1', 'COMMA', 'null', 'COMMA', '0', 'RPAREN', 'SEMI', 'RBRACE']
+   ['PUBLIC', 'void', 'startNewSequence', 'LPAREN', 'RPAREN', 'LBRACE', 'sequenceBufferFilled', 'EQ', 'false', 'SEMI', 'nextFreePos', 'EQ', '0', 'SEMI', 'RBRACE']
+   ...
+   ```
 2. `Model.load_metadata_from_dir` needs to be completed to compute a
    vocabulary from the data (use `load_data_file` to get the token
    sequences).
    
-   To do this, the class `Vocabulary` from `dpu_utils.mlutils.vocabulary`
-   can be used. `Vocabulary.create_vocabulary(...)` can be useful
-   for this. 
-3. `Model.load_data_from_dir` has to be completed to load the full data
-   from disk into memory, tensorising it on the way.
+   To do this, use the class `Vocabulary` from `dpu_utils.mlutils.vocabulary`.
+   `Vocabulary.create_vocabulary(...)` should be used to create it, and the
+   result should be stored as `self.metadata['token_vocab']`.
+   
+   You can test this step as follows:
+   ```
+   $ python test_step2.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/
+   Loaded metadata for model:
+              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'LPAREN': 2, 'RPAREN': 3, 'SEMI': 4
+   ```
 
-   For each sequence of tokens produced by `load_data_file`, it should
-   generate samples of some maximal length (e.g., 100), which are
-   represented as int32 tensors (with each token represented by its
-   corresponding vocabulary index).
+3. `Model.load_data_from_raw_sample_sequences` has to be completed to
+   turn sequences of tokens into tensorised data.
+
+   For each passed sequuence of tokens, it should generate samples of
+   some maximal length (e.g., 50), which are represented as int32 tensors
+   (with each token represented by its corresponding vocabulary index).
 
    Each of the samples should be represented by a list of token ids in
    `loaded_data['tokens']` and the number of tokens in the sample in
    `loaded_data['tokens_lengths']`.
-
    `Vocabulary.get_id_or_unk_multiple()` can be useful for this step.
+
+   You can test this step as follows:
+   ```
+   $ python test_step3.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/ 
+   Sample 0:
+    Real length: 13
+    Tensor length: 50
+    Raw tensor: [ 21  22  15  29 147   2   3   8  77   6  11   4   9   0   0]
+    Interpreted tensor: ['MONKEYS_AT', 'Override', 'PUBLIC', 'void', 'clear', 'LPAREN', 'RPAREN', 'LBRACE', 'numPriorUsesInASequence', 'EQ', '0', 'SEMI', 'RBRACE', '%PAD%', '%PAD%']
+   ...
+   ```
   
 4. `Model.make_model` needs to be filled with the actual model, which
    should predict a token `tok[i]` based on the tokens `tok[:i]` seen
@@ -47,9 +73,12 @@ To turn this into a working model, five changes are required in `model.py`
    1. Create and use an embedding matrix used to map token IDs to a 
       distributed representation.
       `tf.nn.embedding_lookup` should be used in this subtask.
+      An embedding dimension of 64 yields good results on our small
+      dataset.
    2. Use an RNN to process the full sequence of tokens, producing
       one output per token.
       The utility function `tf.nn.dynamic_rnn` can be helpful here.
+      A hidden dimension of 64 yields good results on our dataset.
    3. Apply a transformation to map the RNN outputs to unnormalised
       probabilities over which token is the next one.
       This can be done by applying `tf.layers.dense` to the outputs
@@ -63,22 +92,62 @@ To turn this into a working model, five changes are required in `model.py`
       After completing these steps, you should be able to train the model
       and observe the loss going down (the accuracy value will only be
       filled in after step 5):
-```
-$ python train.py trained_models/test/ train_data/ valid_data/
-Loaded metadata for model:
-           token_vocab: {'%PAD%': 0, '%UNK%': 1, 'self': 2, 'if': 3, 'return': 4, 'd
-Training on 1031 samples.
-Validating on 1031 samples.
-==== Epoch 0 ====
-  Epoch 0 (train) took 31.70s [processed 31 samples/second]
- Training Loss: 0.028717, Accuracy: 0.00%
-  Epoch 0 (valid) took 9.14s [processed 109 samples/second]
- Validation Loss: 0.024548, Accuracy: 0.00%
-  Best result so far -- saving model as 'trained_models/test/Model_RNNModel-2019-01-14-18-52-05_model_best.pkl.gz'.
-[...]
-```
+      ```
+      $ python train.py trained_models/ data/r252-corpus-features/org/elasticsearch/{xpack,search}
+      Loaded metadata for model:
+                token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'dot': 4,
+      Training on 57960 samples.
+      Validating on 29441 samples.
+      ==== Epoch 0 ====
+        Epoch 0 (train) took 44.91s [processed 1290 samples/second]
+      Training Loss: 0.023916, Accuracy: 13.63%
+        Epoch 0 (valid) took 9.11s [processed 3230 samples/second]
+      Validation Loss: 0.021208, Accuracy: 16.17%
+        Best result so far -- saving model as 'trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz'.
+      ==== Epoch 1 ====
+      [...]
+      ```
 
-5. `Model.make_model` should be extended to also compute the number
+5. To actually make predictions, you only need to extend `Model.make_model` to
+   assign the unnormalised probabilities over the next token to
+   `model.ops['output_logits']`. Once that is done, you should be able to test predictions:
+    ```
+    $ python predict.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz "public"
+    Prediction at step 0 (tokens ['public']):
+     Prob 0.481: void
+     Prob 0.085: static
+     Prob 0.080: %UNK%
+    Continuing with token void
+    Prediction at step 1 (tokens ['public', 'void']):
+     Prob 0.734: %UNK%
+     Prob 0.020: lparen
+     Prob 0.010: docheckwithstatuscode
+    Continuing with token %UNK%
+    ...
+    ```
+   **Note**: Note that tokens such as `{` and `(` are represented as 
+    `lbrace` and `lparen` by the feature extractor and need to be used 
+    the same way here, for example as follows:
+    ```
+    $ python predict.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz public int foobar lparen string
+    Prediction at step 0 (tokens ['public', 'int', 'foobar', 'lparen', 'string']):
+    Prob 0.214: %UNK%
+    Prob 0.034: ellipsis
+    Prob 0.029: id
+    Continuing with token %UNK%
+    Prediction at step 1 (tokens ['public', 'int', 'foobar', 'lparen', 'string', '%UNK%']):
+    Prob 0.503: comma
+    Prob 0.473: rparen
+    Prob 0.008: dot
+    Continuing with token comma
+    Prediction at step 2 (tokens ['public', 'int', 'foobar', 'lparen', 'string', '%UNK%', 'comma']):
+    Prob 0.212: string
+    Prob 0.063: boolean
+    Prob 0.057: object
+    ...
+    ```
+
+6. Finally, `Model.make_model` should be extended to also compute the number
    of correct predictions, so that accuracy of the model can easily
    be computed. This part does not need to be differentiable, and so
    you can use `tf.argmax` to determine the most likely token at
@@ -87,11 +156,35 @@ Validating on 1031 samples.
    The number of correctly predicted tokens in a minibatch should be
    exposed as `model.ops['num_correct_tokens']`.
 
-   After completing this step, you should be able to test the model:
-```
-$ python test.py trained_models/test/Model_RNNModel-2019-01-14-18-52-05_model_best.pkl.gz test_data/
-Test accuracy: 66.42%
-```
+   After completing this step, you should be able to evaluate the model:
+    ```
+    $ python evaluate.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz data/r252-corpus-features/org/elasticsearch/common
+      Epoch Test took 4.75s [processed 3041 samples/second]
+    Test accuracy: 50.11%
+    ```
+   If you accuracy is over 100%, you most likely did not consider padding
+   of sequences correctly. See next step.
+
+7. To improve training, we want to ignore those parts of the sequence that are
+   just "%PAD%" symbols introduced to get to a uniform length. To this end,
+   we need to mask out part of the loss (for tokens that are irrelevant).
+   Such a 1.0/0.0 mask can be computed from the sequence lengths as follows:
+   ```(python)
+    # Step 1: Creates a tensor containing a list of token indices, i.e., [0, 1, 2, ..., T-1]
+    index_list = tf.range(tf.shape(self.placeholders['tokens'])[1])  # Shape: [T]
+    # Step 2: Replicate once for each entry in the batch, i.e., 
+    #  [[0, 1, ..., T-1], ..., [0, 1, ..., T-1]]
+    index_tensor = tf.tile(tf.expand_dims(index_list, axis=0),
+                            multiples=(tf.shape(self.placeholders['tokens'])[0],
+                                      1))  # Shape: [B, T]
+    # Step 3: Turn into a 0/1 mask by comparing to the length of each batch entry, resulting in
+    #  [[True, True, ..., True, False, ..., False], ...], which when cast to float gives us the
+    #  required mask.
+    loss_mask = tf.cast(index_tensor < tf.expand_dims(self.placeholders['tokens_lengths'], axis=1),
+                        dtype=tf.float32)  # Shape: [B, T]
+   ```
+   You can use this to improve training as well as fix the computation
+   of correct accuracy values.
 
 
 # Contributing

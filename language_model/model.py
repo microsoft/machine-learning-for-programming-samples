@@ -1,23 +1,34 @@
+import gzip
 import os
+import pickle
 import time
+from glob import iglob
+from collections import defaultdict, OrderedDict, Counter, deque
 from typing import List, Dict, Any, Iterable, Tuple, Optional, Union
+from typing import Counter as CounterType
 
 import numpy as np
 import tensorflow as tf
-from dpu_utils.utils import RichPath
 from more_itertools import chunked
+from dpu_utils.mlutils.vocabulary import Vocabulary
+
+from utils import run_jobs_in_parallel
+from seq_utils import _make_deep_rnn_cell, convert_and_pad_token_sequence
+from graph_pb2 import Graph, FeatureNode, FeatureEdge
 
 
-DATA_FILE_EXTENSION = '.proto'
+DATA_FILE_EXTENSION = 'proto'
 
 
 LoadedSamples = Dict[str, np.ndarray]
 
 
-def get_data_files_from_directory(data_dir: RichPath, max_num_files: Optional[int]=None) -> List[RichPath]:
-    files = data_dir.get_filtered_files_in_dir('*.%s' % DATA_FILE_EXTENSION)
+def get_data_files_from_directory(data_dir: str, max_num_files: Optional[int]=None) -> List[str]:
+    files = iglob(os.path.join(data_dir, '**/*.%s' % DATA_FILE_EXTENSION), recursive=True)
     if max_num_files:
         files = sorted(files)[:int(max_num_files)]
+    else:
+        files = list(files)
     np.random.shuffle(files)
     return files
 
@@ -73,7 +84,7 @@ class Model(object):
     def run_name(self):
         return self.__run_name
 
-    def save(self, path: RichPath) -> None:
+    def save(self, path: str) -> None:
         variables_to_save = list(set(self.__sess.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)))
         weights_to_save = self.__sess.run(variables_to_save)
         weights_to_save = {var.name: value
@@ -87,7 +98,8 @@ class Model(object):
                          "run_name": self.run_name,
                        }
 
-        path.save_as_compressed_file(data_to_save)
+        with gzip.GzipFile(path, 'wb') as outfile:
+            pickle.dump(data_to_save, outfile)
 
     def init(self):
         """
@@ -142,7 +154,7 @@ class Model(object):
             pruned_clipped_gradients.append((gradient, trainable_var))
         self.ops['train_step'] = optimizer.apply_gradients(pruned_clipped_gradients)
 
-    def load_data_file(_, file_path: RichPath) -> Iterable[List[str]]:
+    def load_data_file(_, file_path: str) -> Iterable[List[str]]:
         """
         Load a single data file, returning token streams.
 
@@ -155,7 +167,7 @@ class Model(object):
         #TODO# Insert your data parsing code here
         raise Exception("load_data_file not implemented yet.")
 
-    def load_metadata_from_dir(self, data_dir: RichPath, max_num_files: Optional[int]=None) -> None:
+    def load_metadata_from_dir(self, data_dir: str, max_num_files: Optional[int]=None) -> None:
         """
         Compute model metadata such as a vocabulary.
 
@@ -168,26 +180,26 @@ class Model(object):
         data_files = get_data_files_from_directory(data_dir, max_num_files)
         #TODO# Insert your vocabulary-building code here
         raise Exception("load_metadata_from_dir not implemented yet.")
+        
+        self.__metadata = {'token_vocab': token_vocabulary}
 
-    def load_data_from_dir(self, data_dir: RichPath, max_num_files: Optional[int]=None) -> LoadedSamples:
+    def load_data_from_raw_sample_sequences(self, token_seqs: Iterable[Iterable[str]]) -> LoadedSamples:
         """
         Load and tensorise data.
 
         Args:
-            data_dir: Directory containing data files.
-            max_num_files: Maximal number of files to load.
+            token_seqs: Sequences of tokens to load samples from.
 
         Returns:
             The loaded data, as a dictionary mapping names to numpy arrays.
         """
-        data_files = get_data_files_from_directory(data_dir, max_num_files)
         loaded_data = {
             "tokens": [],
             "tokens_lengths": [],
             }  # type: Dict[str, List[Any]]
 
         #TODO# Insert your tensorisation code here
-        raise Exception("load_data_from_dir not implemented yet.")
+        raise Exception("load_data_from_raw_sample_sequences not implemented yet.")
 
         # Turn into numpy arrays for easier slicing later:
         assert len(loaded_data['tokens']) == len(loaded_data['tokens_lengths']), \
@@ -197,10 +209,16 @@ class Model(object):
         loaded_data['tokens_lengths'] = np.array(loaded_data['tokens_lengths'])
         return loaded_data
 
+    def load_data_from_dir(self, data_dir: str, max_num_files: Optional[int]=None) -> LoadedSamples:
+        data_files = get_data_files_from_directory(data_dir, max_num_files)
+        return self.load_data_from_raw_sample_sequences(token_seq
+                                                        for data_file in data_files
+                                                        for token_seq in self.load_data_file(data_file))
+
     def __split_data_into_minibatches(self,
                                       data: LoadedSamples,
                                       is_train: bool,
-                                      drop_incomplete_final_minibatch: bool=True) \
+                                      drop_incomplete_final_minibatch: bool=False) \
             -> Iterable[Tuple[int, Dict[tf.Tensor, Any]]]:
         """
         Take tensorised data and chunk into feed dictionaries corresponding to minibatches.
@@ -274,7 +292,7 @@ class Model(object):
               % (epoch_name, used_time, int(num_samples_so_far/used_time)))
         return epoch_loss / num_samples_so_far, epoch_correct_predictions / max(epoch_total_tokens, 1) * 100
 
-    def train(self, train_data: LoadedSamples, valid_data: LoadedSamples) -> RichPath:
+    def train(self, train_data: LoadedSamples, valid_data: LoadedSamples) -> str:
         """
         Train model with early stopping.
 
@@ -285,8 +303,8 @@ class Model(object):
         Returns:
             Path to saved model.
         """
-        model_path = RichPath.create(os.path.join(self.__model_save_dir,
-                                                  "%s_model_best.pkl.gz" % (self.hyperparameters['run_id'],)))
+        model_path = os.path.join(self.__model_save_dir,
+                                  "%s_model_best.pkl.gz" % (self.hyperparameters['run_id'],))
         with self.__sess.as_default():
             init_op = tf.variables_initializer(self.__sess.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES))
             self.__sess.run(init_op)

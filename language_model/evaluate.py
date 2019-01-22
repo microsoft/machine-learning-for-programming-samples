@@ -1,28 +1,31 @@
 #!/usr/bin/env python
 """
 Usage:
-    test.py [options] TRAINED_MODEL TEST_DATA_DIR
+    evaluate.py [options] TRAINED_MODEL TEST_DATA_DIR
 
 Options:
     -h --help                        Show this screen.
     --max-num-files INT              Number of files to load.
     --debug                          Enable debug routines. [default: False]
 """
+import gzip
 import json
 import os
+import pickle
 import sys
 import time
 from typing import Dict, Any, Optional
 
 import tensorflow as tf
 from docopt import docopt
-from dpu_utils.utils import RichPath, git_tag_run, run_and_debug
+from dpu_utils.utils import run_and_debug
 
 from model import Model
 
 
-def restore(path: RichPath) -> Model:
-    saved_data = path.read_as_pickle()
+def restore(path: str) -> Model:
+    with gzip.open(path) as f:
+        saved_data = pickle.load(f)
     model = Model(saved_data['hyperparameters'], saved_data.get('run_name'))
     model.metadata.update(saved_data['metadata'])
     model.init()
@@ -51,8 +54,8 @@ def restore(path: RichPath) -> Model:
 
 
 def run(arguments) -> None:
-    model = restore(RichPath.create(arguments['TRAINED_MODEL']))
-    test_data = model.load_data_from_dir(RichPath.create(arguments['TEST_DATA_DIR']),
+    model = restore(arguments['TRAINED_MODEL'])
+    test_data = model.load_data_from_dir(arguments['TEST_DATA_DIR'],
                                          max_num_files=arguments.get('--max-num-files'))
     model.test(test_data)
 
