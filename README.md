@@ -21,8 +21,8 @@ To turn this into a working model, five changes are required in `model.py`
    ```
    $ python test_step1.py data/r252-corpus-features/org/apache/lucene/analysis/miscellaneous/DuplicateByteSequenceSpotter.java.proto
    Loaded token sequences:
-   ['PUBLIC', 'DuplicateByteSequenceSpotter', 'LPAREN', 'RPAREN', 'LBRACE', 'this', 'DOT', 'nodesAllocatedByDepth', 'EQ', 'NEW', 'int', 'LBRACKET', '4', 'RBRACKET', 'SEMI', 'this', 'DOT', 'bytesAllocated', 'EQ', '0', 'SEMI', 'root', 'EQ', 'NEW', 'RootTreeNode', 'LPAREN', 'LPAREN', 'byte', 'RPAREN', '1', 'COMMA', 'null', 'COMMA', '0', 'RPAREN', 'SEMI', 'RBRACE']
-   ['PUBLIC', 'void', 'startNewSequence', 'LPAREN', 'RPAREN', 'LBRACE', 'sequenceBufferFilled', 'EQ', 'false', 'SEMI', 'nextFreePos', 'EQ', '0', 'SEMI', 'RBRACE']
+   ['public', 'duplicatebytesequencespotter', 'lparen', 'rparen', 'lbrace', 'this', 'dot', 'nodesallocatedbydepth', 'eq', 'new', 'int', 'lbracket', '4', 'rbracket', 'semi', 'this', 'dot', 'bytesallocated', 'eq', '0', 'semi', 'root', 'eq', 'new', 'roottreenode', 'lparen', 'lparen', 'byte', 'rparen', '1', 'comma', 'null', 'comma', '0', 'rparen', 'semi', 'rbrace']
+   ['public', 'void', 'startnewsequence', 'lparen', 'rparen', 'lbrace', 'sequencebufferfilled', 'eq', 'false', 'semi', 'nextfreepos', 'eq', '0', 'semi', 'rbrace']
    ...
    ```
 2. `Model.load_metadata_from_dir` needs to be completed to compute a
@@ -31,19 +31,24 @@ To turn this into a working model, five changes are required in `model.py`
    
    To do this, use the class `Vocabulary` from `dpu_utils.mlutils.vocabulary`.
    `Vocabulary.create_vocabulary(...)` should be used to create it, and the
-   result should be stored as `self.metadata['token_vocab']`.
-   
+   result should be stored as `self.metadata['token_vocab']` (this will
+   be used in the scaffolding for step 5).
+
+   **Note**: It is common practice to normalise capitalization of tokens
+    (as the embedding of `foo` and `Foo` should be similar). Make sure that
+    `load_data_file` transform all tokens to lower (or upper) case.
+
    You can test this step as follows:
    ```
    $ python test_step2.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/
    Loaded metadata for model:
-              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'LPAREN': 2, 'RPAREN': 3, 'SEMI': 4
+              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'semi': 4
    ```
 
 3. `Model.load_data_from_raw_sample_sequences` has to be completed to
    turn sequences of tokens into tensorised data.
 
-   For each passed sequuence of tokens, it should generate samples of
+   For each passed sequence of tokens, it should generate samples of
    some maximal length (e.g., 50), which are represented as int32 tensors
    (with each token represented by its corresponding vocabulary index).
 
@@ -58,8 +63,8 @@ To turn this into a working model, five changes are required in `model.py`
    Sample 0:
     Real length: 13
     Tensor length: 50
-    Raw tensor: [ 21  22  15  29 147   2   3   8  77   6  11   4   9   0   0]
-    Interpreted tensor: ['MONKEYS_AT', 'Override', 'PUBLIC', 'void', 'clear', 'LPAREN', 'RPAREN', 'LBRACE', 'numPriorUsesInASequence', 'EQ', '0', 'SEMI', 'RBRACE', '%PAD%', '%PAD%']
+    Raw tensor: [ 21  22  15  29 147   2   3   8  77   6  11   4   9   0   0] (truncated)
+    Interpreted tensor: ['monkeys_at', 'override', 'public', 'void', 'clear', 'lparen', 'rparen', 'lbrace', 'numpriorusesinasequence', 'eq', '0', 'semi', 'rbrace', '%PAD%', '%PAD%'] (truncated)
    ...
    ```
   
@@ -79,38 +84,41 @@ To turn this into a working model, five changes are required in `model.py`
       one output per token.
       The utility function `tf.nn.dynamic_rnn` can be helpful here.
       A hidden dimension of 64 yields good results on our dataset.
-   3. Apply a transformation to map the RNN outputs to unnormalised
-      probabilities over which token is the next one.
+   3. Apply a transformation to map the RNN outputs to a vector of
+      unnormalised probabilities (logits) that can be interpreted as
+      a probability distribution over candidates for the next token.
       This can be done by applying `tf.layers.dense` to the outputs
       of the RNN.
    4. Use `tf.nn.sparse_softmax_cross_entropy_with_logits` to compare
       the computed logits with the ground truth.
-      Consider that if the input sequence is shorter than the maximum
-      length allowed, predictions on the "padding" parts of the input
-      should not contribute to the loss.
+
+      **Note**: Consider that if the input sequence is shorter than the
+      maximum length allowed, predictions on the "padding" parts of the
+      input should not contribute to the loss. See task 5 for details.
     
-      After completing these steps, you should be able to train the model
-      and observe the loss going down (the accuracy value will only be
-      filled in after step 5):
-      ```
-      $ python train.py trained_models/ data/r252-corpus-features/org/elasticsearch/{xpack,search}
-      Loaded metadata for model:
-                token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'dot': 4,
-      Training on 57960 samples.
-      Validating on 29441 samples.
-      ==== Epoch 0 ====
-        Epoch 0 (train) took 44.91s [processed 1290 samples/second]
-      Training Loss: 0.023916, Accuracy: 13.63%
-        Epoch 0 (valid) took 9.11s [processed 3230 samples/second]
-      Validation Loss: 0.021208, Accuracy: 16.17%
-        Best result so far -- saving model as 'trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz'.
-      ==== Epoch 1 ====
-      [...]
-      ```
+    After completing these steps, you should be able to train the model
+    and observe the loss going down (the accuracy value will only be
+    filled in after step 6):
+    ```
+    $ python train.py trained_models/ data/r252-corpus-features/org/elasticsearch/{xpack,search}
+    Loaded metadata for model:
+              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'dot': 4,
+    Training on 57960 samples.
+    Validating on 29441 samples.
+    ==== Epoch 0 ====
+      Epoch 0 (train) took 44.91s [processed 1290 samples/second]
+    Training Loss: 0.023916, Accuracy: 13.63%
+      Epoch 0 (valid) took 9.11s [processed 3230 samples/second]
+    Validation Loss: 0.021208, Accuracy: 16.17%
+      Best result so far -- saving model as 'trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz'.
+    ==== Epoch 1 ====
+    [...]
+    ```
 
 5. To actually make predictions, you only need to extend `Model.make_model` to
    assign the unnormalised probabilities over the next token to
-   `model.ops['output_logits']`. Once that is done, you should be able to test predictions:
+   `model.ops['output_logits']`. Once that is done, you should be able to test
+   predictions:
     ```
     $ python predict.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz "public"
     Prediction at step 0 (tokens ['public']):
@@ -140,10 +148,6 @@ To turn this into a working model, five changes are required in `model.py`
     Prob 0.473: rparen
     Prob 0.008: dot
     Continuing with token comma
-    Prediction at step 2 (tokens ['public', 'int', 'foobar', 'lparen', 'string', '%UNK%', 'comma']):
-    Prob 0.212: string
-    Prob 0.063: boolean
-    Prob 0.057: object
     ...
     ```
 
@@ -162,8 +166,9 @@ To turn this into a working model, five changes are required in `model.py`
       Epoch Test took 4.75s [processed 3041 samples/second]
     Test accuracy: 50.11%
     ```
-   If you accuracy is over 100%, you most likely did not consider padding
-   of sequences correctly. See next step.
+   You may observe accuracies over 100%, which are most likely due to
+   the fact that your number of correct tokens takes predictions of
+   the `%PAD%` token into account. The next task should resolve this.
 
 7. To improve training, we want to ignore those parts of the sequence that are
    just "%PAD%" symbols introduced to get to a uniform length. To this end,
