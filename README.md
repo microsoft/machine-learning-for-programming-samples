@@ -19,7 +19,7 @@ To turn this into a working model, five changes are required in `model.py`
 
    It is common practice to normalise capitalization of tokens (as the embedding
    of `foo` and `Foo` should be similar). Make sure that `load_data_file`
-   transform all tokens to lower (or upper) case.
+   transforms all tokens to lower (or upper) case.
 
    You should be able to test this as follows:
    ```
