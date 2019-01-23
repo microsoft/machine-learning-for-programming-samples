@@ -12,10 +12,6 @@ import tensorflow as tf
 from more_itertools import chunked
 from dpu_utils.mlutils.vocabulary import Vocabulary
 
-from utils import run_jobs_in_parallel
-from seq_utils import _make_deep_rnn_cell, convert_and_pad_token_sequence
-from graph_pb2 import Graph, FeatureNode, FeatureEdge
-
 
 DATA_FILE_EXTENSION = 'proto'
 
