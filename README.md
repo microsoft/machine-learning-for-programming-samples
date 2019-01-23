@@ -171,7 +171,7 @@ To turn this into a working model, five changes are required in `model.py`
    the `%PAD%` token into account. The next task should resolve this.
 
 7. To improve training, we want to ignore those parts of the sequence that are
-   just "%PAD%" symbols introduced to get to a uniform length. To this end,
+   just `%PAD%` symbols introduced to get to a uniform length. To this end,
    we need to mask out part of the loss (for tokens that are irrelevant).
    Such a 1.0/0.0 mask can be computed from the sequence lengths as follows:
    ```(python)
