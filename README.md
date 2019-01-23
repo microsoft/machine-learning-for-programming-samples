@@ -34,7 +34,9 @@ To turn this into a working model, five changes are required in `model.py`
    sequences).
    
    To do this, use the class `Vocabulary` from `dpu_utils.mlutils.vocabulary`.
-   `Vocabulary.create_vocabulary(...)` should be used to create it, and the
+   `Vocabulary.create_vocabulary(...)` should be used to create the vocabulary
+   with its second parameter `max_size` corresponding to the vocabulary size
+   hyperparameter (e.g. 5000). The
    result should be stored as `self.metadata['token_vocab']` (this will
    be used in the scaffolding for step 5).
 
