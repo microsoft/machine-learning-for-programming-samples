@@ -17,6 +17,10 @@ To turn this into a working model, five changes are required in `model.py`
    [This code should be reusable from the practical on the feature
     extractor]
 
+   It is common practice to normalise capitalization of tokens (as the embedding
+   of `foo` and `Foo` should be similar). Make sure that `load_data_file`
+   transform all tokens to lower (or upper) case.
+
    You should be able to test this as follows:
    ```
    $ python test_step1.py data/r252-corpus-features/org/apache/lucene/analysis/miscellaneous/DuplicateByteSequenceSpotter.java.proto
@@ -33,10 +37,6 @@ To turn this into a working model, five changes are required in `model.py`
    `Vocabulary.create_vocabulary(...)` should be used to create it, and the
    result should be stored as `self.metadata['token_vocab']` (this will
    be used in the scaffolding for step 5).
-
-   **Note**: It is common practice to normalise capitalization of tokens
-    (as the embedding of `foo` and `Foo` should be similar). Make sure that
-    `load_data_file` transform all tokens to lower (or upper) case.
 
    You can test this step as follows:
    ```
