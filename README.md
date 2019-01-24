@@ -73,7 +73,7 @@ To turn this into a working model, five changes are required in `model.py`
 4. `Model.make_model` needs to be filled with the actual model, which
    should predict a token `tok[i]` based on the tokens `tok[:i]` seen
    so far.
-   This should consume the placeholders defined in `Model.init_model` and
+   This should consume the placeholders defined in `Model.init` and
    produce a scalar `model.ops['loss']` that will be optimized.
 
    This method should consists of four steps:
