@@ -33,7 +33,7 @@ To turn this into a working model, five changes are required in `model.py`
    vocabulary from the data (use `load_data_file` to get the token
    sequences).
    
-   To do this, use the class `Vocabulary` from `dpu_utils.mlutils.vocabulary`.
+   To do this, use the class `Vocabulary` from [`dpu_utils.mlutils.vocabulary`](https://github.com/Microsoft/dpu-utils/blob/master/dpu_utils/mlutils/vocabulary.py).
    `Vocabulary.create_vocabulary(...)` should be used to create the vocabulary
    with its second parameter `max_size` corresponding to the vocabulary size
    hyperparameter (e.g. 5000).
@@ -79,7 +79,8 @@ To turn this into a working model, five changes are required in `model.py`
    This method should consists of four steps:
    1. Create and use an embedding matrix used to map token IDs to a 
       distributed representation.
-      `tf.nn.embedding_lookup` should be used in this subtask.
+      [`tf.nn.embedding_lookup`](https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup)
+      should be used in this subtask.
       You might find [`tf.Variable`](https://www.tensorflow.org/api_docs/python/tf/Variable)
       and [`tf.random.uniform`](https://www.tensorflow.org/api_docs/python/tf/random/uniform)
       useful to populate the first parameter of
@@ -88,15 +89,16 @@ To turn this into a working model, five changes are required in `model.py`
       dataset.
    2. Use an RNN to process the full sequence of tokens, producing
       one output per token.
-      The utility function `tf.nn.dynamic_rnn` can be helpful here.
+      The utility function [`tf.nn.dynamic_rnn`](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn)
+      can be helpful here.
       As an RNN cell you might like to use [`tf.keras.layers.SimpleRNNCell`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/SimpleRNNCell).
       A hidden dimension of 64 yields good results on our dataset.
    3. Apply a transformation to map the RNN outputs to a vector of
       unnormalised probabilities (logits) that can be interpreted as
       a probability distribution over candidates for the next token.
-      This can be done by applying `tf.layers.dense` to the outputs
+      This can be done by applying [`tf.layers.dense`](https://www.tensorflow.org/api_docs/python/tf/layers/dense) to the outputs
       of the RNN.
-   4. Use `tf.nn.sparse_softmax_cross_entropy_with_logits` to compare
+   4. Use [`tf.nn.sparse_softmax_cross_entropy_with_logits`](https://www.tensorflow.org/api_docs/python/tf/nn/sparse_softmax_cross_entropy_with_logits) to compare
       the computed logits with the ground truth.
 
       **Note**: Consider that if the input sequence is shorter than the
@@ -161,7 +163,7 @@ To turn this into a working model, five changes are required in `model.py`
 6. Finally, `Model.make_model` should be extended to also compute the number
    of correct predictions, so that accuracy of the model can easily
    be computed. This part does not need to be differentiable, and so
-   you can use `tf.argmax` to determine the most likely token at
+   you can use [`tf.arg_max`](https://www.tensorflow.org/api_docs/python/tf/arg_max) to determine the most likely token at
    each step, and `tf.equal` to check that it is identical to the
    ground truth.
    The number of correctly predicted tokens in a minibatch should be
