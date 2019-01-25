@@ -79,12 +79,19 @@ To turn this into a working model, five changes are required in `model.py`
    This method should consists of four steps:
    1. Create and use an embedding matrix used to map token IDs to a 
       distributed representation.
-      [`tf.nn.embedding_lookup`](https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup) should be used in this subtask.
+      [`tf.nn.embedding_lookup`](https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup)
+      should be used in this subtask.
+      You might find [`tf.Variable`](https://www.tensorflow.org/api_docs/python/tf/Variable)
+      and [`tf.random.uniform`](https://www.tensorflow.org/api_docs/python/tf/random/uniform)
+      useful to populate the first parameter of
+      `tf.nn.embedding_lookup`.
       An embedding dimension of 64 yields good results on our small
       dataset.
    2. Use an RNN to process the full sequence of tokens, producing
       one output per token.
-      The utility function [`tf.nn.dynamic_rnn`](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn) can be helpful here.
+      The utility function [`tf.nn.dynamic_rnn`](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn)
+      can be helpful here.
+      As an RNN cell you might like to use [`tf.keras.layers.SimpleRNNCell`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/SimpleRNNCell).
       A hidden dimension of 64 yields good results on our dataset.
    3. Apply a transformation to map the RNN outputs to a vector of
       unnormalised probabilities (logits) that can be interpreted as
