@@ -36,7 +36,7 @@ To turn this into a working model, five changes are required in `model.py`
    To do this, use the class `Vocabulary` from [`dpu_utils.mlutils.vocabulary`](https://github.com/Microsoft/dpu-utils/blob/master/dpu_utils/mlutils/vocabulary.py).
    `Vocabulary.create_vocabulary(...)` should be used to create the vocabulary
    with its second parameter `max_size` corresponding to the vocabulary size
-   hyperparameter (e.g. 5000).
+   hyperparameter (e.g. 5000) and `count_threshold` corresponding to the cut-off threshold for rare vocabularies (e.g. 10).
    The result should be stored as `self.metadata['token_vocab']` (this will
    be used in the scaffolding for step 5).
 
@@ -59,7 +59,7 @@ To turn this into a working model, five changes are required in `model.py`
    `loaded_data['tokens_lengths']`.
    `Vocabulary.get_id_or_unk_multiple()` can be useful for this step.
 
-   You can test this step as follows:
+   You can test this step as follows: (note this is an example output that is using count_threshold of 2)
    ```
    $ python test_step3.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/ 
    Sample 0:
