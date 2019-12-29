@@ -1,204 +1,214 @@
 # Samples for Machine Learning for Programming
 
 These are samples used in the University of Cambridge course 
-[Machine Learning for Programming](https://www.cl.cam.ac.uk/teaching/1819/R252/).
+[Machine Learning for Programming](https://www.cl.cam.ac.uk/teaching/1920/P252/).
 
 ## A Simple Language Model
 
-Scaffolding for a simple TensorFlow language model is provided in
-`language_model/`.
-If you want to re-use this, install required dependencies using
-`pip install -r requirements.txt`.
-To turn this into a working model, five changes are required in `model.py`
-(these are marked by `#TODO#'`):
-1. `Model.load_data_file` needs to be filled in to read a data file and 
-   return a sequence of lists of tokens; each list is considered one sample.
-   These could be all the tokens in one file, or all the tokens in one method.
-   [This code should be reusable from the practical on the feature
-    extractor]
+Scaffolding for a simple language model is provided in `language_model/`, for
+TensorFlow 1.X, TensorFlow 2.X, and PyTorch.
+If you want to re-use this, pick a framework you want to use, install it and
+the requirements for this model using `pip install -r requirements.txt`.
 
-   It is common practice to normalise capitalization of tokens (as the embedding
-   of `foo` and `Foo` should be similar). Make sure that `load_data_file`
-   transforms all tokens to lower (or upper) case.
+
+The scaffold provides some generic code to simplify the task (such as a 
+training loop, logic for saving and restoring, ...), but you need to complete 
+the code in a number of places to obtain a working model (these are marked by 
+`#TODO N#` in the code):
+1. In `model.py`, uncomment the line corresponding to the framework you want to
+   use.
+
+2. In `dataset.py`, `load_data_file` needs to be filled in to read a data file
+   and return a sequence of lists of tokens; each list is considered one 
+   sample.
+   This should re-use the code from the first practical to provide one sample
+   for the tokens in each method.
+
+   It is common practice to normalise capitalization of tokens (as the
+   embedding of `foo` and `Foo` should be similar). Make sure that 
+   `load_data_file` transforms all tokens to lower (or upper) case.
 
    You should be able to test this as follows:
    ```
-   $ python test_step1.py data/r252-corpus-features/org/apache/lucene/analysis/miscellaneous/DuplicateByteSequenceSpotter.java.proto
-   Loaded token sequences:
-   ['public', 'duplicatebytesequencespotter', 'lparen', 'rparen', 'lbrace', 'this', 'dot', 'nodesallocatedbydepth', 'eq', 'new', 'int', 'lbracket', '4', 'rbracket', 'semi', 'this', 'dot', 'bytesallocated', 'eq', '0', 'semi', 'root', 'eq', 'new', 'roottreenode', 'lparen', 'lparen', 'byte', 'rparen', '1', 'comma', 'null', 'comma', '0', 'rparen', 'semi', 'rbrace']
-   ['public', 'void', 'startnewsequence', 'lparen', 'rparen', 'lbrace', 'sequencebufferfilled', 'eq', 'false', 'semi', 'nextfreepos', 'eq', '0', 'semi', 'rbrace']
-   ...
+   $ python test_step2.py data/jsoup/src/main/java/org/jsoup/Jsoup.java.proto | tail -n -1
+   ['public', 'static', 'boolean', 'isvalid', 'lparen', 'string', 'bodyhtml', 'comma', 'whitelist', 'whitelist', 'rparen', 'lbrace', 'return', 'new', 'cleaner', 'lparen', 'whitelist', 'rparen', 'dot', 'isvalidbodyhtml', 'lparen', 'bodyhtml', 'rparen', 'semi', 'rbrace', 'rbrace']
    ```
-2. `Model.load_metadata_from_dir` needs to be completed to compute a
-   vocabulary from the data (use `load_data_file` to get the token
-   sequences).
-   
-   To do this, use the class `Vocabulary` from [`dpu_utils.mlutils.vocabulary`](https://github.com/Microsoft/dpu-utils/blob/master/dpu_utils/mlutils/vocabulary.py).
-   `Vocabulary.create_vocabulary(...)` should be used to create the vocabulary
-   with its second parameter `max_size` corresponding to the vocabulary size
-   hyperparameter (e.g. 5000) and `count_threshold` corresponding to the cut-off threshold for rare vocabularies (e.g. 10).
-   The result should be stored as `self.metadata['token_vocab']` (this will
-   be used in the scaffolding for step 5).
+
+3. In `dataset.py`, `build_vocab_from_data_dir` needs to be completed to 
+   compute a vocabulary from the data.
+   The vocabulary will be used to represent all tokens by integer IDs, and
+   we need to consider three special tokens: the `UNK` token used to represent
+   infrequent tokens and those not seen at training time, the `PAD` token used
+   to make all samples of the same length, and `START_SYMBOL` token used to
+   as the first token in every sample.
+
+   To do this, we use the class `Vocabulary` from [`dpu_utils.mlutils.vocabulary`](https://github.com/Microsoft/dpu-utils/blob/master/python/dpu_utils/mlutils/vocabulary.py).
+   Using `load_data_file` from above, compute the frequency of tokens in the
+   passed `data_dir` (`collections.Counter` is useful here) and use that
+   information to add the `vocab_size` most common of them to `vocab`.
 
    You can test this step as follows:
    ```
-   $ python test_step2.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/
-   Loaded metadata for model:
-              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'semi': 4
+   $ python test_step3.py data/jsoup/src/main/java/org/jsoup/
+   Loaded vocabulary for dataset:
+   {'%PAD%': 0, '%UNK%': 1, '%START%': 2, 'rparen': 3, 'lparen': 4, 'semi': 5, 'dot': 6, 'rbrace': 7, ' [...]
    ```
 
-3. `Model.load_data_from_raw_sample_sequences` has to be completed to
-   turn sequences of tokens into tensorised data.
-
-   For each passed sequence of tokens, it should generate samples of
-   some maximal length (e.g., 50), which are represented as int32 tensors
-   (with each token represented by its corresponding vocabulary index).
-
-   Each of the samples should be represented by a list of token ids in
-   `loaded_data['tokens']` and the number of tokens in the sample in
-   `loaded_data['tokens_lengths']`.
-   `Vocabulary.get_id_or_unk_multiple()` can be useful for this step.
+4. In `dataset.py`, `tensorise_token_sequence` needs to be completed to 
+   translate a token sequence into a sequence of integer token IDs of
+   uniform length.
+   
+   The output of the function should always be a list of length `length`
+   of token IDs from `vocab`, where longer sequences are truncated and shorter
+   sequences are padded to the correct length.
+   We also want to use this method to insert the `START_SYMBOL` at the
+   beginning of each sample.
 
    You can test this step as follows: (note this is an example output that is using count_threshold of 2)
    ```
-   $ python test_step3.py r252-corpus-features/org/apache/lucene/analysis/miscellaneous/ 
+   $ python test_step4.py data/jsoup/src/main/java/org/jsoup/
    Sample 0:
-    Real length: 13
-    Tensor length: 50
-    Raw tensor: [ 21  22  15  29 147   2   3   8  77   6  11   4   9   0   0] (truncated)
-    Interpreted tensor: ['monkeys_at', 'override', 'public', 'void', 'clear', 'lparen', 'rparen', 'lbrace', 'numpriorusesinasequence', 'eq', '0', 'semi', 'rbrace', '%PAD%', '%PAD%'] (truncated)
+   Real length: 50
+   Tensor length: 50
+   Raw tensor: [  2  13   1   4   3   8 118   4   3   5   7  13   1   4  12   1   3   8
+   118   4   1   3   5   7  13   1   4   1   1   3   8 118   4   1   3   5
+      7  13   1   4  12   1   9   1   1   3   8 118   4   1] (truncated)
+   Interpreted tensor: ['%START%', 'public', '%UNK%', 'lparen', 'rparen', 'lbrace', 'super', 'lparen', 'rparen', 'semi', 'rbrace', 'public', '%UNK%', 'lparen', 'string', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%', 'rparen', 'semi', 'rbrace', 'public', '%UNK%', 'lparen', '%UNK%', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%', 'rparen', 'semi', 'rbrace', 'public', '%UNK%', 'lparen', 'string', '%UNK%', 'comma', '%UNK%', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%'] (truncated)
+   Sample 1:
+   Real length: 46
+   Tensor length: 50
+   Raw tensor: [  2  13   1   4  12   1   3   8 118   4   1   3   5   7  13   1   4   1
+      1   3   8 118   4   1   3   5   7  13   1   4  12   1   9   1   1   3
+      8 118   4   1   9   1   3   5   7   7   0   0] (truncated)
+   Interpreted tensor: ['%START%', 'public', '%UNK%', 'lparen', 'string', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%', 'rparen', 'semi', 'rbrace', 'public', '%UNK%', 'lparen', '%UNK%', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%', 'rparen', 'semi', 'rbrace', 'public', '%UNK%', 'lparen', 'string', '%UNK%', 'comma', '%UNK%', '%UNK%', 'rparen', 'lbrace', 'super', 'lparen', '%UNK%', 'comma', '%UNK%', 'rparen', 'semi', 'rbrace', 'rbrace', '%PAD%', '%PAD%'] (truncated)
    ...
    ```
-  
-4. `Model.make_model` needs to be filled with the actual model, which
-   should predict a token `tok[i]` based on the tokens `tok[:i]` seen
+
+5. The actual model needs to be built.
+   Our goal is to learn to predict `tok[i]` based on the token `tok[:i]` seen
    so far.
-   This should consume the placeholders defined in `Model.init` and
-   produce a scalar `model.ops['loss']` that will be optimized.
+   The process and scaffold is very similar in all frameworks. The
+   method `compute_logits` and `compute_loss_and_acc` need to be completed,
+   and the `build` method can always be used to initialise weights and
+   layers that will be re-used during training and prediction.
+   Parameters such as `EmbeddingDim` and `RNNDim` should be hyperparameters,
+   but values such as `64` work well.
 
-   This method should consists of four steps:
-   1. Create and use an embedding matrix used to map token IDs to a 
-      distributed representation.
-      [`tf.nn.embedding_lookup`](https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup)
-      should be used in this subtask.
-      You might find [`tf.Variable`](https://www.tensorflow.org/api_docs/python/tf/Variable)
-      and [`tf.random.uniform`](https://www.tensorflow.org/api_docs/python/tf/random/uniform)
-      useful to populate the first parameter of
-      `tf.nn.embedding_lookup`.
-      An embedding dimension of 64 yields good results on our small
-      dataset.
-   2. Use an RNN to process the full sequence of tokens, producing
-      one output per token.
-      The utility function [`tf.nn.dynamic_rnn`](https://www.tensorflow.org/api_docs/python/tf/nn/dynamic_rnn)
-      can be helpful here.
-      As an RNN cell you might like to use [`tf.keras.layers.SimpleRNNCell`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/SimpleRNNCell).
-      A hidden dimension of 64 yields good results on our dataset.
-   3. Apply a transformation to map the RNN outputs to a vector of
-      unnormalised probabilities (logits) that can be interpreted as
-      a probability distribution over candidates for the next token.
-      This can be done by applying [`tf.layers.dense`](https://www.tensorflow.org/api_docs/python/tf/layers/dense) to the outputs
-      of the RNN.
-   4. Use [`tf.nn.sparse_softmax_cross_entropy_with_logits`](https://www.tensorflow.org/api_docs/python/tf/nn/sparse_softmax_cross_entropy_with_logits) to compare
-      the computed logits with the ground truth.
+   1) In `compute_logits`, implement the logic to embed the `token_ids` input
+      tensor into a distributed representation.
+      In TF 1.x, you can use `tf.nn.embedding_lookup`; in TF 2.X, you can use
+      `tf.keras.layers.Embedding`; and in PyTorch, you can use
+      `torch.nn.Embedding` for this purpose.
 
-      **Note**: Consider that if the input sequence is shorter than the
-      maximum length allowed, predictions on the "padding" parts of the
-      input should not contribute to the loss. See task 5 for details.
-    
-    After completing these steps, you should be able to train the model
-    and observe the loss going down (the accuracy value will only be
-    filled in after step 6):
-    ```
-    $ python train.py trained_models/ data/r252-corpus-features/org/elasticsearch/{xpack,search}
-    Loaded metadata for model:
-              token_vocab: {'%PAD%': 0, '%UNK%': 1, 'lparen': 2, 'rparen': 3, 'dot': 4,
-    Training on 57960 samples.
-    Validating on 29441 samples.
-    ==== Epoch 0 ====
-      Epoch 0 (train) took 44.91s [processed 1290 samples/second]
-    Training Loss: 0.023916, Accuracy: 13.63%
-      Epoch 0 (valid) took 9.11s [processed 3230 samples/second]
-    Validation Loss: 0.021208, Accuracy: 16.17%
-      Best result so far -- saving model as 'trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz'.
-    ==== Epoch 1 ====
-    [...]
-    ```
+      This should translate an `int32` tensor of shape `[Batch, Timesteps]`
+      into a `float32` tensor of shape `[Batch, Timesteps, EmbeddingDim]`.
+   
+   2) In `compute_logits`, implement an actual RNN consuming the results of
+      the embedding layer. You can use `tf.keras.layers.GRU` resp. 
+      `torch.nn.GRU` (or their LSTM variants) for this.
+      This should translate a `float32` tensor of shape `[Batch, Timesteps,
+      EmbeddingDim]` into a `float32` tensor of shape `[Batch, Timesteps, 
+      RNNDim]`.
+   
+   3) In `compute_logits`, implement a linear layer to translate the RNN
+      output into an unnormalised probability distribution over the the
+      vocabulary. You can use `tf.keras.layers.Dense` resp. `torch.nn.Linear`
+      for this.
+      This should translate a `float32` tensor of shape `[Batch, Timesteps,
+      RNNDim]` into a `float32` tensor of shape `[Batch, Timesteps, 
+      VocabSize]`.
 
-5. To actually make predictions, you only need to extend `Model.make_model` to
-   assign the unnormalised probabilities over the next token to
-   `model.ops['output_logits']`. Once that is done, you should be able to test
-   predictions:
-    ```
-    $ python predict.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz "public"
-    Prediction at step 0 (tokens ['public']):
-     Prob 0.481: void
-     Prob 0.085: static
-     Prob 0.080: %UNK%
-    Continuing with token void
-    Prediction at step 1 (tokens ['public', 'void']):
-     Prob 0.734: %UNK%
-     Prob 0.020: lparen
-     Prob 0.010: docheckwithstatuscode
-    Continuing with token %UNK%
-    ...
-    ```
+   4) In `compute_loss_and_acc`, implement a cross-entropy loss that compares
+      the probability distribution computed at timestep `T` with the input
+      at timestep `T+1` (which is the token that we want to predict).
+      Note that this means that we need to discard the final RNN output, as we
+      do not know the next token.
+      You can use `tf.nn.sparse_softmax_cross_entropy_with_logits` resp.
+      `torch.nn.CrossEntropyLoss` for this.
+
+   After completing these steps, you should be able to train the model
+   and observe the loss going down (the accuracy value will only be
+   filled in after step 6):
+   ```
+   $ python train.py trained_models data/jsoup/{,}
+   Loading data ...
+     Built vocabulary of 4697 entries.
+     Loaded 2233 training samples from data/jsoup/.
+     Loaded 2233 validation samples from data/jsoup/.
+   Running model on GPU.
+   Constructed model, using the following hyperparameters: {"optimizer": "Adam", "learning_rate": 0.01, "learning_rate_decay": 0.98, "momentum": 0.85, "max_epochs": 500, "patience": 5, "max_vocab_size": 10000, "max_seq_length": 50, "batch_size": 200, "token_embedding_size": 64, "rnn_type": "GRU", "rnn_num_layers": 2, "rnn_hidden_dim": 64, "rnn_dropout": 0.2, "use_gpu": true, "run_id": "RNNModel-2019-12-29-13-23-18"}
+   Initial valid loss: 0.042.
+   [...]
+   == Epoch 1
+    Train:  Loss 0.0303, Acc 0.000
+    Valid:  Loss 0.0224, Acc 0.000
+     (Best epoch so far, loss decreased 0.0224 from 0.0423)
+     (Saved model to trained_models/RNNModel-2019-12-29-13-23-18_best_model.bin)
+   == Epoch 2
+    Train:  Loss 0.0213, Acc 0.000
+    Valid:  Loss 0.0195, Acc 0.000
+     (Best epoch so far, loss decreased 0.0195 from 0.0224)
+     (Saved model to trained_models/RNNModel-2019-12-29-13-23-18_best_model.bin)
+   [...]
+   ```
+
+   The saved models should already be usable as autocompletion models, using
+   the provided `predict.py` script:
+   ```
+   $ python predict.py trained_models/RNNModel-2019-12-29-13-23-18_best_model.bin public
+   Prediction at step 0 (tokens ['public']):
+    Prob 0.282: static
+    Prob 0.099: void
+    Prob 0.067: string
+   Continuing with token static
+   Prediction at step 1 (tokens ['public', 'static']):
+    Prob 0.345: void
+    Prob 0.173: document
+    Prob 0.123: string
+   Continuing with token void
+   Prediction at step 2 (tokens ['public', 'static', 'void']):
+    Prob 0.301: main
+    Prob 0.104: isfalse
+    Prob 0.089: nonullelements
+   Continuing with token main
+   Prediction at step 3 (tokens ['public', 'static', 'void', 'main']):
+    Prob 0.999: lparen
+    Prob 0.000: filterout
+    Prob 0.000: iterator
+   Continuing with token lparen
+   Prediction at step 4 (tokens ['public', 'static', 'void', 'main', 'lparen']):
+    Prob 0.886: string
+    Prob 0.033: int
+    Prob 0.030: object
+   Continuing with token string
+   ```
    **Note**: Note that tokens such as `{` and `(` are represented as 
-    `lbrace` and `lparen` by the feature extractor and need to be used 
-    the same way here, for example as follows:
-    ```
-    $ python predict.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz public int foobar lparen string
-    Prediction at step 0 (tokens ['public', 'int', 'foobar', 'lparen', 'string']):
-    Prob 0.214: %UNK%
-    Prob 0.034: ellipsis
-    Prob 0.029: id
-    Continuing with token %UNK%
-    Prediction at step 1 (tokens ['public', 'int', 'foobar', 'lparen', 'string', '%UNK%']):
-    Prob 0.503: comma
-    Prob 0.473: rparen
-    Prob 0.008: dot
-    Continuing with token comma
-    ...
-    ```
+    `lbrace` and `lparen` by the feature extractor and are used 
+    the same way here.
 
-6. Finally, `Model.make_model` should be extended to also compute the number
-   of correct predictions, so that accuracy of the model can easily
-   be computed. This part does not need to be differentiable, and so
-   you can use [`tf.arg_max`](https://www.tensorflow.org/api_docs/python/tf/arg_max) to determine the most likely token at
-   each step, and `tf.equal` to check that it is identical to the
-   ground truth.
-   The number of correctly predicted tokens in a minibatch should be
-   exposed as `model.ops['num_correct_tokens']`.
+6. Finally, `compute_loss_and_acc` should be extended to also compute the
+   number of (correct) predictions, so that accuracy of the model can be
+   computed.
+   For this, you need to check if the most likely prediction corresponds to
+   the ground truth. You can use `tf.argmax` resp. `torch.argmax` here.
+   Finally, we also need to discount padding tokens, so you need to compute
+   a mask which predictions correspond to padding. Here, you can use
+   `self.vocab.get_id_or_unk(self.vocab.get_pad())` to get the integer ID
+   of the padding token.
 
    After completing this step, you should be able to evaluate the model:
-    ```
-    $ python evaluate.py trained_models/RNNModel-2019-01-22-16-56-50_model_best.pkl.gz data/r252-corpus-features/org/elasticsearch/common
-      Epoch Test took 4.75s [processed 3041 samples/second]
-    Test accuracy: 50.11%
-    ```
-   You may observe accuracies over 100%, which are most likely due to
-   the fact that your number of correct tokens takes predictions of
-   the `%PAD%` token into account. The next task should resolve this.
+   ```
+   $ python evaluate.py trained_models/RNNModel-2019-12-29-13-23-18_best_model.bin data/jsoup/
+   Loading data ...
+     Loaded trained model from trained_models/RNNModel-2019-12-29-13-23-18_best_model.bin.
+     Loaded 2233 test samples from data/jsoup/.
+   Test:  Loss 24.9771, Acc 0.876
+   ```
 
 7. To improve training, we want to ignore those parts of the sequence that are
    just `%PAD%` symbols introduced to get to a uniform length. To this end,
    we need to mask out part of the loss (for tokens that are irrelevant).
-   Such a 1.0/0.0 mask can be computed from the sequence lengths as follows:
-   ```(python)
-    # Step 1: Creates a tensor containing a list of token indices, i.e., [0, 1, 2, ..., T-1]
-    index_list = tf.range(tf.shape(self.placeholders['tokens'])[1])  # Shape: [T]
-    # Step 2: Replicate once for each entry in the batch, i.e., 
-    #  [[0, 1, ..., T-1], ..., [0, 1, ..., T-1]]
-    index_tensor = tf.tile(tf.expand_dims(index_list, axis=0),
-                            multiples=(tf.shape(self.placeholders['tokens'])[0],
-                                      1))  # Shape: [B, T]
-    # Step 3: Turn into a 0/1 mask by comparing to the length of each batch entry, resulting in
-    #  [[True, True, ..., True, False, ..., False], ...], which when cast to float gives us the
-    #  required mask.
-    loss_mask = tf.cast(index_tensor < tf.expand_dims(self.placeholders['tokens_lengths'], axis=1),
-                        dtype=tf.float32)  # Shape: [B, T]
-   ```
-   You can use this to improve training as well as fix the computation
-   of correct accuracy values.
+   You can use the mask computed in step 6 again here.
 
 
 # Contributing

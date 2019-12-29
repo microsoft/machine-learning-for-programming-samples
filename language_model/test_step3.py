@@ -11,29 +11,20 @@ Options:
 from docopt import docopt
 from dpu_utils.utils import run_and_debug
 
-from model import Model
-from train import make_run_id
+from dataset import build_vocab_from_data_dir
+
 
 def run(arguments) -> None:
-    hyperparameters = Model.get_default_hyperparameters()
-    hyperparameters['run_id'] = make_run_id(arguments)
-    model = Model(hyperparameters, model_save_dir=".")
+    vocab = build_vocab_from_data_dir(
+        arguments["DATA_DIR"],
+        vocab_size=500,
+        max_num_files=arguments.get("--max-num-files")
+    )
 
-    max_num_files = arguments.get('--max-num-files')
-    data_dir = arguments['DATA_DIR']
-    model.load_metadata_from_dir(data_dir, max_num_files=max_num_files)
-    data = model.load_data_from_dir(data_dir, max_num_files=max_num_files)
+    print("Loaded vocabulary for dataset: ")
+    print(" %s [...]" % (str(vocab)[:100]))
 
-    for idx in range(min(5, len(data['tokens']))):
-        length = data['tokens_lengths'][idx]
-        token_ids = data['tokens'][idx]
-        tokens = [model.metadata['token_vocab'].get_name_for_id(tok_id) for tok_id in token_ids]
-        print("Sample %i:" % (idx))
-        print(" Real length: %i" % (length))
-        print(" Tensor length: %i" % (len(token_ids)))
-        print(" Raw tensor: %s (truncated)" % (str(token_ids[:length+2])))
-        print(" Interpreted tensor: %s (truncated)" % (str(tokens[:length+2])))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = docopt(__doc__)
-    run_and_debug(lambda: run(args), args['--debug'])
+    run_and_debug(lambda: run(args), args["--debug"])
