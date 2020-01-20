@@ -9,6 +9,7 @@ from dpu_utils.mlutils.vocabulary import Vocabulary
 
 DATA_FILE_EXTENSION = "proto"
 START_SYMBOL = "%START%"
+END_SYMBOL = "%END%"
 
 
 def get_data_files_from_directory(
@@ -55,6 +56,7 @@ def build_vocab_from_data_dir(
     vocab = Vocabulary(add_unk=True, add_pad=True)
     # Make sure to include the START_SYMBOL in the vocabulary as well:
     vocab.add_or_get_id(START_SYMBOL)
+    vocab.add_or_get_id(END_SYMBOL)
 
     #TODO 3# Insert your vocabulary-building code here
 
