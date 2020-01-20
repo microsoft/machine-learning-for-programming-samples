@@ -16,9 +16,8 @@ Options:
 """
 import json
 import os
-import sys
 import time
-from typing import Dict, Any, Optional, Iterator
+from typing import Dict, Any
 
 import numpy as np
 from docopt import docopt

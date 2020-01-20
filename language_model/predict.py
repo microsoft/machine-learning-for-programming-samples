@@ -10,16 +10,12 @@ Options:
     --num-steps NUM  Number of steps to continue token sequence for. [default: 5]
     --debug          Enable debug routines. [default: False]
 """
-import json
-import os
-import sys
-import time
-from typing import Dict, Any, Optional, List
+from typing import List
 
 from docopt import docopt
-from dpu_utils.utils import git_tag_run, run_and_debug
+from dpu_utils.utils import run_and_debug
 
-from dataset import tensorise_token_sequence
+from dataset import tensorise_token_sequence, END_SYMBOL
 from model import LanguageModel
 
 
@@ -41,6 +37,9 @@ def run(arguments) -> None:
         for (token, prob) in cands:
             print(" Prob %.3f: %s" % (prob, token))
         next_tok = cands[0][0]
+        if next_tok == END_SYMBOL:
+            print('Reached end of sequence. Stopping.')
+            break
         print("Continuing with token %s" % next_tok)
         tokens.append(next_tok)
 

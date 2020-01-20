@@ -6,9 +6,15 @@ These are samples used in the University of Cambridge course
 ## A Simple Language Model
 
 Scaffolding for a simple language model is provided in `language_model/`, for
-TensorFlow 1.X, TensorFlow 2.X, and PyTorch.
+TensorFlow 1.X, TensorFlow 2.X, and PyTorch. Python 3.6 or later is required.
 If you want to re-use this, pick a framework you want to use, install it and
 the requirements for this model using `pip install -r requirements.txt`.
+
+To get started, open a console and change your current directory to `language_model/`.
+Alternatively, set that directory to your `PYTHONPATH` enviornment variable:
+```
+export PYTHONPATH=/path/to/language_model
+```
 
 
 The scaffold provides some generic code to simplify the task (such as a 
@@ -40,7 +46,7 @@ the code in a number of places to obtain a working model (these are marked by
    we need to consider three special tokens: the `UNK` token used to represent
    infrequent tokens and those not seen at training time, the `PAD` token used
    to make all samples of the same length, and `START_SYMBOL` token used to
-   as the first token in every sample.
+   as the first token in every sample and the `END_SYMBOL` used as the last.
 
    To do this, we use the class `Vocabulary` from [`dpu_utils.mlutils.vocabulary`](https://github.com/Microsoft/dpu-utils/blob/master/python/dpu_utils/mlutils/vocabulary.py).
    Using `load_data_file` from above, compute the frequency of tokens in the
@@ -51,7 +57,7 @@ the code in a number of places to obtain a working model (these are marked by
    ```
    $ python test_step3.py data/jsoup/src/main/java/org/jsoup/
    Loaded vocabulary for dataset:
-   {'%PAD%': 0, '%UNK%': 1, '%START%': 2, 'rparen': 3, 'lparen': 4, 'semi': 5, 'dot': 6, 'rbrace': 7, ' [...]
+   {'%PAD%': 0, '%UNK%': 1, '%START%': 2, '%END%': 3, 'rparen': 4, 'lparen': 5, 'semi': 6, 'dot': 7, 'rbrace': 8, ' [...]
    ```
 
 4. In `dataset.py`, `tensorise_token_sequence` needs to be completed to 
@@ -62,7 +68,9 @@ the code in a number of places to obtain a working model (these are marked by
    of token IDs from `vocab`, where longer sequences are truncated and shorter
    sequences are padded to the correct length.
    We also want to use this method to insert the `START_SYMBOL` at the
-   beginning of each sample.
+   beginning of each sample. The special `END_SYMBOL` symbol needs to be appended
+   to indicate the end of a list of tokens, whereas a special `PAD_SYMBOL` needs
+   to be added to serve as a filler so that all token sequences will have the same length.
 
    You can test this step as follows: (note this is an example output that is using count_threshold of 2)
    ```
@@ -96,23 +104,25 @@ the code in a number of places to obtain a working model (these are marked by
 
    1) In `compute_logits`, implement the logic to embed the `token_ids` input
       tensor into a distributed representation.
-      In TF 1.x, you can use `tf.nn.embedding_lookup`; in TF 2.X, you can use
-      `tf.keras.layers.Embedding`; and in PyTorch, you can use
-      `torch.nn.Embedding` for this purpose.
+      In TF 1.x, you can use [`tf.nn.embedding_lookup`](https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/nn/embedding_lookup);
+      in TF 2.X, you can use [`tf.keras.layers.Embedding`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/Embedding);
+      and in PyTorch, you can use [`torch.nn.Embedding`](https://pytorch.org/docs/master/nn.html#torch.nn.Embedding) for this purpose.
 
       This should translate an `int32` tensor of shape `[Batch, Timesteps]`
       into a `float32` tensor of shape `[Batch, Timesteps, EmbeddingDim]`.
    
    2) In `compute_logits`, implement an actual RNN consuming the results of
-      the embedding layer. You can use `tf.keras.layers.GRU` resp. 
-      `torch.nn.GRU` (or their LSTM variants) for this.
+      the embedding layer. You can use [`tf.keras.layers.GRU`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/GRU)
+      resp. [`torch.nn.GRU`](https://pytorch.org/docs/master/nn.html#torch.nn.GRU)
+      (or their LSTM variants) for this.
       This should translate a `float32` tensor of shape `[Batch, Timesteps,
       EmbeddingDim]` into a `float32` tensor of shape `[Batch, Timesteps, 
       RNNDim]`.
    
    3) In `compute_logits`, implement a linear layer to translate the RNN
       output into an unnormalised probability distribution over the the
-      vocabulary. You can use `tf.keras.layers.Dense` resp. `torch.nn.Linear`
+      vocabulary. You can use [`tf.keras.layers.Dense`](https://www.tensorflow.org/api_docs/python/tf/keras/layers/Dense) 
+      resp. [`torch.nn.Linear`](https://pytorch.org/docs/master/nn.html#torch.nn.Linear)
       for this.
       This should translate a `float32` tensor of shape `[Batch, Timesteps,
       RNNDim]` into a `float32` tensor of shape `[Batch, Timesteps, 
@@ -123,8 +133,8 @@ the code in a number of places to obtain a working model (these are marked by
       at timestep `T+1` (which is the token that we want to predict).
       Note that this means that we need to discard the final RNN output, as we
       do not know the next token.
-      You can use `tf.nn.sparse_softmax_cross_entropy_with_logits` resp.
-      `torch.nn.CrossEntropyLoss` for this.
+      You can use [`tf.nn.sparse_softmax_cross_entropy_with_logits`](https://www.tensorflow.org/api_docs/python/tf/nn/sparse_softmax_cross_entropy_with_logits) resp.
+      [`torch.nn.CrossEntropyLoss`](https://pytorch.org/docs/master/nn.html?highlight=crossentropyloss#torch.nn.CrossEntropyLoss) for this.
 
    After completing these steps, you should be able to train the model
    and observe the loss going down (the accuracy value will only be
