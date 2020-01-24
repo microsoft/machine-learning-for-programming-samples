@@ -37,7 +37,7 @@ the code in a number of places to obtain a working model (these are marked by
    You should be able to test this as follows:
    ```
    $ python test_step2.py data/jsoup/src/main/java/org/jsoup/Jsoup.java.proto | tail -n -1
-   ['public', 'static', 'boolean', 'isvalid', 'lparen', 'string', 'bodyhtml', 'comma', 'whitelist', 'whitelist', 'rparen', 'lbrace', 'return', 'new', 'cleaner', 'lparen', 'whitelist', 'rparen', 'dot', 'isvalidbodyhtml', 'lparen', 'bodyhtml', 'rparen', 'semi', 'rbrace', 'rbrace']
+   ['public', 'static', 'boolean', 'isvalid', 'lparen', 'string', 'bodyhtml', 'comma', 'whitelist', 'whitelist', 'rparen', 'lbrace', 'return', 'new', 'cleaner', 'lparen', 'whitelist', 'rparen', 'dot', 'isvalidbodyhtml', 'lparen', 'bodyhtml', 'rparen', 'semi', 'rbrace']
    ```
 
 3. In `dataset.py`, `build_vocab_from_data_dir` needs to be completed to 
